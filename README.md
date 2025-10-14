@@ -1,6 +1,6 @@
 # AgroTrack - Actividad Obligatoria 1 (MVP)
 
-**Alumno:** [TU NOMBRE] - Legajo: [TU_LEGAJO]
+**Alumno:** [Diaz Giannone Santiago] - Legajo: [46126622]
 
 ## Resumen
 Servidor HTTP creado con Node.js puro (sin Express) que:
