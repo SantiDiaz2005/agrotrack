@@ -1,0 +1,9 @@
+/* estilos.css */
+body { font-family: Arial, sans-serif; margin: 24px; color:#222; }
+header h1 { margin:0 0 12px 0; }
+h1 { color: #0a4; }
+a { color: #06c; text-decoration: none; }
+a:hover { text-decoration: underline; }
+form input, form textarea { width: 100%; max-width: 480px; }
+button { padding: 8px 12px; }
+pre { background:#f7f7f7; padding:10px; border:1px solid #ddd; }
