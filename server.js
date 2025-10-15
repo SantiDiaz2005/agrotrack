@@ -8,7 +8,7 @@ const fsp = require('fs').promises;
 const path = require('path');
 const os = require('os');
 
-const PORT = process.env.PORT || 3000; // acepta env PORT, por defecto 3000 (checklist)
+const PORT = process.env.PORT || 8888; // acepta env PORT, por defecto 8888
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const CONSULTAS_FILE = path.join(DATA_DIR, 'consultas.txt');
@@ -42,11 +42,40 @@ function send500(res) {
 
 function send404(res, urlPath) {
   res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`<!doctype html><html><head><meta charset="utf-8"><title>404</title></head><body>
-    <h1>404 - Recurso no encontrado</h1>
-    <p>No existe el recurso solicitado: <strong>${escapeHtml(urlPath)}</strong></p>
-    <p><a href="/">Volver al inicio</a></p>
-  </body></html>`);
+  res.end(`<!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <title>404 - Página no encontrada</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 50px;
+        background-color: #f8f8f8;
+        color: #333;
+      }
+      h1 {
+        color: #c00;
+      }
+      a {
+        display: inline-block;
+        margin-top: 15px;
+        text-decoration: none;
+        color: #007bff;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Error 404</h1>
+    <p>La página que intentás acceder no existe.</p>
+    <p><strong>${escapeHtml(urlPath)}</strong></p>
+    <a href="/">Volver al inicio</a>
+  </body>
+  </html>`);
 }
 
 function escapeHtml(s) {
