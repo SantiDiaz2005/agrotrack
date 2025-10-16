@@ -237,6 +237,32 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    else if (req.method === 'POST' && req.url === '/contacto/cargar') {
+    let body = '';
+
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+        const params = new URLSearchParams(body);
+        const nombre = params.get('nombre');
+        const email = params.get('email');
+        const mensaje = params.get('mensaje');
+        const fecha = new Date().toLocaleString();
+
+        const nuevaConsulta = `Fecha: ${fecha}\nNombre: ${nombre}\nEmail: ${email}\nMensaje: ${mensaje}\n---------------------------\n`;
+
+        try {
+            await fsp.appendFile('./data/consultas.txt', nuevaConsulta);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end('<h1>Consulta guardada correctamente</h1><p>Los datos fueron almacenados en data/consultas.txt</p>');
+        } catch (err) {
+            send500(res);
+        }
+    });
+}
+
 
     // Si llega acá: intentar servir recurso estático dentro de /public
     // Normalizamos y evitamos directory traversal
