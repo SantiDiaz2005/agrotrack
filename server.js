@@ -107,6 +107,8 @@ const server = http.createServer(async (req, res) => {
     // 5) Contacto listar -> /contacto/listar
     // Otherwise: static files under /public
 
+    console.log(req.method, req.url);
+
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
       // servir public/index.html
       const filePath = path.join(PUBLIC_DIR, 'index.html');
