@@ -108,6 +108,8 @@ const server = http.createServer(async (req, res) => {
     // Otherwise: static files under /public
 
     console.log(req.method, req.url);
+    const cleanPath = pathname.trim();
+
 
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
       // servir public/index.html
@@ -115,17 +117,17 @@ const server = http.createServer(async (req, res) => {
       return serveStaticFile(filePath, res, req);
     }
 
-    if (req.method === 'GET' && pathname === '/productos.html') {
+    if (req.method === 'GET' && cleanPath === '/productos.html') {
       const filePath = path.join(PUBLIC_DIR, 'productos.html');
       return serveStaticFile(filePath, res, req);
     }
 
-    if (req.method === 'GET' && pathname === '/login') {
+    if (req.method === 'GET' && cleanPath === '/login') {
       const filePath = path.join(PUBLIC_DIR, 'login.html');
       return serveStaticFile(filePath, res, req);
     }
 
-    if (req.method === 'POST' && pathname === '/auth/recuperar') {
+    if (req.method === 'POST' && cleanPath === '/auth/recuperar') {
       // Leer cuerpo y mostrar usuario/clave
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -150,13 +152,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     // CONTACTO: GET form
-    if (req.method === 'GET' && pathname === '/contacto') {
+    if (req.method === 'GET' && cleanPath === '/contacto') {
       const filePath = path.join(PUBLIC_DIR, 'contacto.html');
       return serveStaticFile(filePath, res, req);
     }
 
     // CONTACTO: POST cargar
-    if (req.method === 'POST' && pathname.trim === '/contacto/cargar') {
+    if (req.method === 'POST' && cleanPath === '/contacto/cargar') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', async () => {
@@ -193,7 +195,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // CONTACTO: listar
-    if (req.method === 'GET' && pathname === '/contacto/listar') {
+    if (req.method === 'GET' && cleanPath === '/contacto/listar') {
       try {
         // leer archivo (si no existe -> mostrar "Aún no hay consultas")
         let contenido = '';
