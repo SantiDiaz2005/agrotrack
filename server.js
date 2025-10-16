@@ -156,7 +156,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // CONTACTO: POST cargar
-    if (req.method === 'POST' && pathname === '/contacto/cargar') {
+    if (req.method === 'POST' && pathname.trim === '/contacto/cargar') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', async () => {
