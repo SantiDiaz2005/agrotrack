@@ -8,11 +8,12 @@ const fsp = require('fs').promises;
 const path = require('path');
 const os = require('os');
 
-const PORT = process.env.PORT || 8888; // acepta env PORT, por defecto 8888
+const PORT = process.env.PORT || 8888;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const CONSULTAS_FILE = path.join(DATA_DIR, 'consultas.txt');
 
+// Tipos MIME
 const mime = {
   html: 'text/html; charset=utf-8',
   css: 'text/css',
@@ -32,6 +33,20 @@ function getMimeByPath(filePath) {
   return mime[ext] || 'application/octet-stream';
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function formatLocalDate(d = new Date()) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ---------------------
+// Manejo de errores
+// ---------------------
 function send500(res) {
   res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(`<!doctype html><html><head><meta charset="utf-8"><title>500</title></head><body>
@@ -42,106 +57,73 @@ function send500(res) {
 
 function send404(res, urlPath) {
   res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`<!DOCTYPE html>
-  <html lang="es">
-  <head>
-    <meta charset="UTF-8">
+  res.end(`<!doctype html><html lang="es"><head><meta charset="UTF-8">
     <title>404 - Página no encontrada</title>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 50px;
-        background-color: #f8f8f8;
-        color: #333;
-      }
-      h1 {
-        color: #c00;
-      }
-      a {
-        display: inline-block;
-        margin-top: 15px;
-        text-decoration: none;
-        color: #007bff;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
+      body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f8f8f8; color: #333; }
+      h1 { color: #c00; }
+      a { display: inline-block; margin-top: 15px; text-decoration: none; color: #007bff; }
+      a:hover { text-decoration: underline; }
     </style>
-  </head>
-  <body>
+  </head><body>
     <h1>Error 404</h1>
     <p>La página que intentás acceder no existe.</p>
     <p><strong>${escapeHtml(urlPath)}</strong></p>
     <a href="/">Volver al inicio</a>
-  </body>
-  </html>`);
+  </body></html>`);
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function formatLocalDate(d = new Date()) {
-  // formato: YYYY-MM-DD HH:MM
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Asegura que la carpeta data existe (asincrónico, pero lo hacemos al inicio)
+// ---------------------
+// Servidor principal
+// ---------------------
 fsp.mkdir(DATA_DIR, { recursive: true }).catch(err => {
-  console.error('No se pudo crear data/:', err);
+  console.error('No se pudo crear carpeta data:', err);
 });
 
 const server = http.createServer(async (req, res) => {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  let pathname = decodeURIComponent(parsedUrl.pathname.trim());
-  console.log(req.method, req.url);
-  const cleanPath = pathname.trim();
   try {
-    const hostForUrl = `http://localhost:${PORT}`;
-    const url = new URL(req.url, hostForUrl);
-    const pathname = url.pathname;
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = decodeURIComponent(parsedUrl.pathname.trim());
 
-    // RUTAS ESPECIALES:
-    // 1) Login GET -> /login (sirve login.html)
-    // 2) Login POST -> /auth/recuperar
-    // 3) Contacto GET form -> /contacto
-    // 4) Contacto POST -> /contacto/cargar
-    // 5) Contacto listar -> /contacto/listar
-    // Otherwise: static files under /public
+    // ---------------------
+    // Rutas principales
+    // ---------------------
 
-
+    // Index
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
-      // servir public/index.html
-      const filePath = path.join(PUBLIC_DIR, 'index.html');
-      return serveStaticFile(filePath, res, req);
+      return serveStaticFile(path.join(PUBLIC_DIR, 'index.html'), res);
     }
 
-    if (req.method === 'GET' && cleanPath === '/productos.html') {
-      const filePath = path.join(PUBLIC_DIR, 'productos.html');
-      return serveStaticFile(filePath, res, req);
+    // Páginas estáticas simples
+    if (req.method === 'GET' && pathname === '/productos.html') {
+      return serveStaticFile(path.join(PUBLIC_DIR, 'productos.html'), res);
     }
 
-    if (req.method === 'GET' && cleanPath === '/login') {
-      const filePath = path.join(PUBLIC_DIR, 'login.html');
-      return serveStaticFile(filePath, res, req);
+    if (req.method === 'GET' && pathname === '/login') {
+      return serveStaticFile(path.join(PUBLIC_DIR, 'login.html'), res);
     }
 
-    if (req.method === 'POST' && cleanPath === '/auth/recuperar') {
-      // Leer cuerpo y mostrar usuario/clave
+    if (req.method === 'GET' && pathname === '/contacto') {
+      return serveStaticFile(path.join(PUBLIC_DIR, 'contacto.html'), res);
+    }
+
+    // ---------------------
+    // POST /auth/recuperar
+    // ---------------------
+    if (req.method === 'POST' && pathname === '/auth/recuperar') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         try {
           const params = new URLSearchParams(body);
-          const usuario = params.get('nombre') || params.get('usuario') || '';
+          const usuario = params.get('usuario') || params.get('nombre') || '';
           const clave = params.get('clave') || '';
+
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Auth</title></head><body>
             <h1>Datos recibidos</h1>
-            <p>Usuario: ${escapeHtml(usuario)}</p>
-            <p>Clave: ${escapeHtml(clave)}</p>
+            <p><strong>Usuario:</strong> ${escapeHtml(usuario)}</p>
+            <p><strong>Clave:</strong> ${escapeHtml(clave)}</p>
             <p><a href="/login">Volver</a></p>
           </body></html>`);
         } catch (err) {
@@ -152,13 +134,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // CONTACTO: GET form
-    if (req.method === 'GET' && cleanPath === '/contacto') {
-      const filePath = path.join(PUBLIC_DIR, 'contacto.html');
-      return serveStaticFile(filePath, res, req);
-    }
-
-    // --- CONTACTO: POST cargar ---
+    // ---------------------
+    // POST /contacto/cargar
+    // ---------------------
     if (req.method === 'POST' && pathname === '/contacto/cargar') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -170,24 +148,20 @@ const server = http.createServer(async (req, res) => {
           const email = params.get('email') || 'Sin email';
           const mensaje = params.get('mensaje') || '';
 
-          // Construir texto a guardar
           const separador = '-------------------------';
           const fecha = formatLocalDate(new Date());
           const texto = `${separador}${os.EOL}Fecha: ${fecha}${os.EOL}Nombre: ${nombre}${os.EOL}Email: ${email}${os.EOL}Mensaje: ${mensaje}${os.EOL}${separador}${os.EOL}${os.EOL}`;
 
-          // Guardar (asegurar carpeta data)
-          await fsp.mkdir(DATA_DIR, { recursive: true });
           await fsp.appendFile(CONSULTAS_FILE, texto, { encoding: 'utf8' });
 
-          // Responder con agradecimiento
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Gracias</title></head><body>
-        <h1>Gracias por su consulta</h1>
-        <p><strong>Nombre:</strong> ${escapeHtml(nombre)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-        <p><strong>Mensaje:</strong> ${escapeHtml(mensaje)}</p>
-        <p><a href="/">Volver al inicio</a> | <a href="/contacto/listar">Ver todas las consultas</a></p>
-        </body></html>`);
+            <h1>Gracias por su consulta</h1>
+            <p><strong>Nombre:</strong> ${escapeHtml(nombre)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+            <p><strong>Mensaje:</strong> ${escapeHtml(mensaje)}</p>
+            <p><a href="/">Volver al inicio</a> | <a href="/contacto/listar">Ver todas las consultas</a></p>
+          </body></html>`);
         } catch (err) {
           console.error('Error al procesar contacto:', err);
           send500(res);
@@ -196,45 +170,20 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // CONTACTO: listar
-    if (req.method === 'GET' && cleanPath === '/contacto/listar') {
+    // ---------------------
+    // GET /contacto/listar
+    // ---------------------
+    if (req.method === 'GET' && pathname === '/contacto/listar') {
       try {
-        // leer archivo (si no existe -> mostrar "Aún no hay consultas")
-        let contenido = '';
-        try {
-          contenido = await fsp.readFile(CONSULTAS_FILE, 'utf8');
-        } catch (err) {
-          // si no existe, mostrar mensaje
-          if (err.code === 'ENOENT') {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Consultas</title></head><body>
-              <h1>Consultas</h1>
-              <p>Aún no hay consultas.</p>
-              <p><a href="/">Volver</a></p>
-            </body></html>`);
-            return;
-          } else {
-            throw err;
-          }
-        }
+        const contenido = await fsp.readFile(CONSULTAS_FILE, 'utf8').catch(() => '');
+        const htmlContent = contenido.trim()
+          ? `<pre style="white-space: pre-wrap;">${escapeHtml(contenido)}</pre>`
+          : '<p>Aún no hay consultas.</p>';
 
-        // Si existe pero vacío?
-        if (!contenido || contenido.trim() === '') {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Consultas</title></head><body>
-            <h1>Consultas</h1>
-            <p>Aún no hay consultas.</p>
-            <p><a href="/">Volver</a></p>
-          </body></html>`);
-          return;
-        }
-
-        // Mostrar contenido dentro de <pre>
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const safeContent = escapeHtml(contenido);
         res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Consultas</title></head><body>
           <h1>Consultas</h1>
-          <pre style="white-space: pre-wrap;">${safeContent}</pre>
+          ${htmlContent}
           <p><a href="/">Volver</a></p>
         </body></html>`);
       } catch (err) {
@@ -243,53 +192,25 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
-    else if (req.method === 'POST' && req.url === '/contacto/cargar') {
-      let body = '';
 
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
-
-      req.on('end', async () => {
-        const params = new URLSearchParams(body);
-        const nombre = params.get('nombre');
-        const email = params.get('email');
-        const mensaje = params.get('mensaje');
-        const fecha = new Date().toLocaleString();
-
-        const nuevaConsulta = `Fecha: ${fecha}\nNombre: ${nombre}\nEmail: ${email}\nMensaje: ${mensaje}\n---------------------------\n`;
-
-        try {
-          await fsp.appendFile('./data/consultas.txt', nuevaConsulta);
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end('<h1>Consulta guardada correctamente</h1><p>Los datos fueron almacenados en data/consultas.txt</p>');
-        } catch (err) {
-          send500(res);
-        }
-      });
-    }
-
-    // Si llega acá: intentar servir recurso estático dentro de /public
-    // Normalizamos y evitamos directory traversal
+    // ---------------------
+    // Archivos estáticos
+    // ---------------------
     const staticPath = path.join(PUBLIC_DIR, decodeURIComponent(pathname));
     if (!staticPath.startsWith(PUBLIC_DIR)) {
-      // intento de accesso a fuera de public
       return send404(res, pathname);
     }
 
-    let fileToServe = staticPath;
-    // si path termina con / -> index.html
-    const stat = await tryStat(fileToServe);
+    const stat = await tryStat(staticPath);
     if (stat && stat.isDirectory()) {
-      fileToServe = path.join(fileToServe, 'index.html');
+      return serveStaticFile(path.join(staticPath, 'index.html'), res);
     }
 
-    const finalStat = await tryStat(fileToServe);
-    if (!finalStat) {
-      return send404(res, pathname);
+    if (await tryStat(staticPath)) {
+      return serveStaticFile(staticPath, res);
     }
 
-    return serveStaticFile(fileToServe, res, req);
+    return send404(res, pathname);
 
   } catch (err) {
     console.error('Error no capturado:', err);
@@ -297,29 +218,29 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// ---------------------
+// Funciones auxiliares
+// ---------------------
 async function tryStat(fp) {
-  try {
-    return await fsp.stat(fp);
-  } catch (e) {
-    return null;
-  }
+  try { return await fsp.stat(fp); }
+  catch { return null; }
 }
 
-function serveStaticFile(filePath, res, req) {
-  // lee y sirve archivo asíncronamente, setea MIME
+function serveStaticFile(filePath, res) {
   fsp.readFile(filePath)
     .then(content => {
-      const tipo = getMimeByPath(filePath);
-      res.writeHead(200, { 'Content-Type': tipo });
+      res.writeHead(200, { 'Content-Type': getMimeByPath(filePath) });
       res.end(content);
     })
     .catch(err => {
-      console.error('Error sirviendo archivo:', filePath, err);
-      if (err.code === 'ENOENT') send404(res, req.url);
+      if (err.code === 'ENOENT') send404(res, filePath);
       else send500(res);
     });
 }
 
+// ---------------------
+// Iniciar servidor
+// ---------------------
 server.listen(PORT, () => {
   console.log(`Servidor AgroTrack iniciado en http://localhost:${PORT}/`);
 });
